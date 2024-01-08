@@ -5,12 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
-import android.util.Log
 import androidx.core.app.NotificationCompat
 
 
@@ -26,22 +24,28 @@ class CallNotification(private val context: Context) {
             } else {
                 Notification.PRIORITY_MAX
             }
+
+        private val pendingIntentFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) (PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT) else PendingIntent.FLAG_UPDATE_CURRENT
     }
 
     fun showCallNotification(callData: CallData, config: PluginConfig) {
-        if(FlutterIncomingCallPlugin.ringtonePlayer == null) {
-            FlutterIncomingCallPlugin.ringtonePlayer = CallPlayer(context, config)
-        }
+        if (config.ringtone) {
+            if(FlutterIncomingCallPlugin.ringtonePlayer == null) {
+                FlutterIncomingCallPlugin.ringtonePlayer = CallPlayer(context, config)
+            }
 
-        FlutterIncomingCallPlugin.ringtonePlayer?.let {
-            if(!it.isPlaying()) it.play(callData)
+            FlutterIncomingCallPlugin.ringtonePlayer?.let {
+                if(!it.isPlaying()) it.play(callData)
+            }
         }
 
         val notificationID = callData.notificationId
         val declineIntent = CallBroadcastReceiver.declineIntent(context, callData)
         val acceptIntent = CallBroadcastReceiver.acceptIntent(context, callData)
-        val declinePi = PendingIntent.getBroadcast(context, 0, declineIntent, PendingIntent.FLAG_UPDATE_CURRENT)
-        val acceptPi = PendingIntent.getBroadcast(context, 0, acceptIntent, PendingIntent.FLAG_UPDATE_CURRENT)
+        val declinePi = PendingIntent.getBroadcast(context, 0, declineIntent, pendingIntentFlag)
+        val acceptPi = PendingIntent.getBroadcast(context, 0, acceptIntent, pendingIntentFlag)
+
+
         val soundUri: Uri = Uri.parse("android.resource://${context.packageName}/${R.raw.nosound}")
         val notification: Notification = NotificationCompat.Builder(context, config.channelId)
                 .setAutoCancel(true)
@@ -113,7 +117,7 @@ class CallNotification(private val context: Context) {
 
     private fun getCallerActivityPendingIntent(notificationID: Int, callData: CallData): PendingIntent? {
         val intent = IncomingCallActivity.start(callData)
-        return PendingIntent.getActivity(context, notificationID, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+        return PendingIntent.getActivity(context, notificationID, intent, pendingIntentFlag)
     }
 
     private fun createNotificationChannel(manager: NotificationManager, soundUri: Uri?) {
